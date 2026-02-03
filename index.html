@@ -2,74 +2,156 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Nothing</title>
+  <meta name="theme-color" content="#000000" />
   <style>
-    body {
+    html, body {
       margin: 0;
+      height: 100%;
       background: #000;
-      color: #fff;
+      color: rgba(255,255,255,.75);
       font-family: -apple-system, system-ui, Segoe UI, Roboto, Arial, sans-serif;
+      overflow: hidden;
     }
-    .wrap {
-      min-height: 100vh;
+
+    /* Big scrollable black canvas */
+    .scroll {
+      height: 100vh;
+      overflow-y: scroll;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: none;
+      scrollbar-width: none;
+    }
+    .scroll::-webkit-scrollbar { display: none; }
+
+    .canvas {
+      height: 300vh; /* lets user scroll a lot, but nothing changes */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 28px;
+      box-sizing: border-box;
+    }
+
+    /* Message overlay */
+    .msg {
+      position: fixed;
+      inset: 0;
       display: flex;
       align-items: center;
       justify-content: center;
       text-align: center;
-      padding: 40px 20px;
+      padding: 28px;
+      box-sizing: border-box;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 650ms ease;
     }
-    h1 {
-      font-size: 64px;
-      margin: 0 0 14px;
-      letter-spacing: -1px;
+    .msg.show { opacity: 1; }
+
+    .msgText {
+      font-size: 20px;
+      line-height: 1.4;
+      color: rgba(255,255,255,.7);
+      max-width: 560px;
     }
-    p {
-      margin: 0 0 26px;
-      font-size: 18px;
-      line-height: 1.6;
-      color: rgba(255,255,255,.78);
-    }
-    .btns {
-      display: flex;
-      gap: 12px;
-      justify-content: center;
-      flex-wrap: wrap;
-      margin-top: 10px;
-    }
-    a.btn {
-      display: inline-block;
-      padding: 12px 18px;
-      border-radius: 14px;
-      border: 1px solid rgba(255,255,255,.25);
-      color: #fff;
-      text-decoration: none;
-      font-size: 16px;
-    }
-    a.btn:hover { border-color: rgba(255,255,255,.55); }
+
+    /* Tiny helper text (only shown if wake lock fails) */
     .tiny {
-      margin-top: 22px;
-      font-size: 13px;
-      color: rgba(255,255,255,.45);
+      position: fixed;
+      left: 0; right: 0;
+      bottom: 18px;
+      text-align: center;
+      font-size: 12px;
+      color: rgba(255,255,255,.35);
+      opacity: 0;
+      transition: opacity 300ms ease;
+      pointer-events: none;
     }
+    .tiny.show { opacity: 1; }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div>
-      <h1>Nothing</h1>
-      <p>
-        Time on your phone where nothing tries to pull you in.<br />
-        Most people can’t stay for 10 minutes.
-      </p>
-
-      <div class="btns">
-        <a class="btn" href="#" aria-label="Download for iOS">Download for iOS</a>
-        <a class="btn" href="#" aria-label="Download for Android">Download for Android</a>
-      </div>
-
-      <div class="tiny">No accounts. No sharing. No performance.</div>
-    </div>
+  <div class="scroll" id="scroll">
+    <div class="canvas"></div>
   </div>
+
+  <div class="msg" id="msg">
+    <div class="msgText" id="msgText"></div>
+  </div>
+
+  <div class="tiny" id="tiny">Tip: set Auto-Lock to “Never” for long sessions.</div>
+
+  <script>
+    // ---- Messages (LOCKED 1A) ----
+    const schedule = [
+      { min: 5,  text: "Nothing pulled you." },
+      { min: 10, text: "10 minutes passed. Nothing happened." },
+      { min: 15, text: "The phone didn’t compete." },
+      { min: 30, text: "You were here." },
+      { min: 60, text: "You didn’t miss anything." },
+    ];
+
+    // ---- Invisible timer starts immediately ----
+    const start = Date.now();
+    const shown = new Set();
+
+    const msg = document.getElementById("msg");
+    const msgText = document.getElementById("msgText");
+    const tiny = document.getElementById("tiny");
+
+    function vibrateSoft() {
+      // Works on many Android devices; iPhone Safari often ignores vibration.
+      if (navigator.vibrate) navigator.vibrate(20);
+    }
+
+    async function requestWakeLock() {
+      // Works best on Chrome/Android; iOS Safari support is limited.
+      try {
+        if ("wakeLock" in navigator) {
+          await navigator.wakeLock.request("screen");
+          // If it works, don't show tip.
+          tiny.classList.remove("show");
+        } else {
+          tiny.classList.add("show");
+        }
+      } catch {
+        tiny.classList.add("show");
+      }
+    }
+
+    function showMessage(text) {
+      vibrateSoft();
+      msgText.textContent = text;
+      msg.classList.add("show");
+
+      setTimeout(() => msg.classList.remove("show"), 3200);
+    }
+
+    // Check every second; only trigger exactly on minute boundaries.
+    setInterval(() => {
+      const elapsedMs = Date.now() - start;
+      const elapsedSec = Math.floor(elapsedMs / 1000);
+      const elapsedMin = Math.floor(elapsedSec / 60);
+
+      // Only check at the exact first second of each minute:
+      if (elapsedSec % 60 !== 0) return;
+
+      for (const item of schedule) {
+        if (elapsedMin === item.min && !shown.has(item.min)) {
+          shown.add(item.min);
+          showMessage(item.text);
+        }
+      }
+    }, 1000);
+
+    // “Room breath” haptic every 6 minutes (soft)
+    setInterval(() => vibrateSoft(), 6 * 60 * 1000);
+
+    // Ask for wake lock after first user interaction (required by browsers)
+    document.addEventListener("click", requestWakeLock, { once: true });
+    document.addEventListener("touchstart", requestWakeLock, { once: true });
+  </script>
 </body>
 </html>
