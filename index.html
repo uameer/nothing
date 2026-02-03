@@ -1,23 +1,151 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Nothing</title>
+  <meta name="theme-color" content="#000000" />
+
   <style>
-    body {
+    html, body {
       margin: 0;
-      background: black;
-      color: white;
-      font-family: -apple-system, system-ui, sans-serif;
+      height: 100%;
+      background: #000;
+      color: rgba(255,255,255,.75);
+      font-family: -apple-system, system-ui, Segoe UI, Roboto, Arial, sans-serif;
+      overflow: hidden;
+    }
+
+    /* Scroll allowed, meaningless */
+    .scroll {
+      height: 100vh;
+      overflow-y: scroll;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: none;
+      scrollbar-width: none;
+      background: #000;
+    }
+    .scroll::-webkit-scrollbar { display: none; }
+
+    .canvas {
+      height: 300vh; /* makes scrolling possible */
       display: flex;
       align-items: center;
       justify-content: center;
-      height: 100vh;
-      font-size: 24px;
+      padding: 28px;
+      box-sizing: border-box;
     }
+
+    /* Message overlay */
+    .msg {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 28px;
+      box-sizing: border-box;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 650ms ease;
+    }
+    .msg.show { opacity: 1; }
+
+    .msgText {
+      font-size: 20px;
+      line-height: 1.4;
+      color: rgba(255,255,255,.7);
+      max-width: 560px;
+    }
+
+    /* tiny helper (only shows if wake lock likely won’t work) */
+    .tiny {
+      position: fixed;
+      left: 0; right: 0;
+      bottom: 18px;
+      text-align: center;
+      font-size: 12px;
+      color: rgba(255,255,255,.35);
+      opacity: 0;
+      transition: opacity 300ms ease;
+      pointer-events: none;
+    }
+    .tiny.show { opacity: 1; }
   </style>
 </head>
+
 <body>
-  VERSION TEST — YOU SHOULD SEE THIS
+  <div class="scroll" id="scroll">
+    <div class="canvas"></div>
+  </div>
+
+  <div class="msg" id="msg">
+    <div class="msgText" id="msgText"></div>
+  </div>
+
+  <div class="tiny" id="tiny">Tip: set Auto-Lock to “Never” for long sessions.</div>
+
+  <script>
+    // 1A schedule (LOCKED)
+    const schedule = [
+      { min: 5,  text: "Nothing pulled you." },
+      { min: 10, text: "10 minutes passed. Nothing happened." },
+      { min: 15, text: "The phone didn’t compete." },
+      { min: 30, text: "You were here." },
+      { min: 60, text: "You didn’t miss anything." },
+    ];
+
+    const start = Date.now();
+    const shown = new Set();
+
+    const msg = document.getElementById("msg");
+    const msgText = document.getElementById("msgText");
+    const tiny = document.getElementById("tiny");
+
+    function vibrateSoft() {
+      // Works on many Android devices; iPhone Safari often ignores vibration.
+      if (navigator.vibrate) navigator.vibrate(20);
+    }
+
+    async function requestWakeLock() {
+      // Works best on Chrome/Android; iOS Safari support is limited.
+      try {
+        if ("wakeLock" in navigator) {
+          await navigator.wakeLock.request("screen");
+          tiny.classList.remove("show");
+        } else {
+          tiny.classList.add("show");
+        }
+      } catch {
+        tiny.classList.add("show");
+      }
+    }
+
+    function showMessage(text) {
+      vibrateSoft();
+      msgText.textContent = text;
+      msg.classList.add("show");
+      setTimeout(() => msg.classList.remove("show"), 3200);
+    }
+
+    // Reliable scheduler: once elapsed minutes reaches a threshold, show it once.
+    setInterval(() => {
+      const m = Math.floor((Date.now() - start) / 60000);
+      for (const item of schedule) {
+        if (m >= item.min && !shown.has(item.min)) {
+          shown.add(item.min);
+          showMessage(item.text);
+        }
+      }
+    }, 250);
+
+    // “Room breath” haptic every 6 minutes (subtle)
+    setInterval(() => vibrateSoft(), 6 * 60 * 1000);
+
+    // Wake lock requires user interaction — ask silently on first touch/click.
+    document.addEventListener("click", requestWakeLock, { once: true });
+    document.addEventListener("touchstart", requestWakeLock, { once: true });
+  </script>
 </body>
 </html>
