@@ -145,6 +145,11 @@
     // “Room breath” haptic every 6 minutes (soft)
     setInterval(() => vibrateSoft(), 6 * 60 * 1000);
 
+    // --- TEST: show a message after 3 seconds (guaranteed) ---
+setTimeout(() => {
+  showMessage("TEST: if you see this, messages work.");
+}, 3000);
+
     // Ask for wake lock after first user interaction (required by browsers)
     document.addEventListener("click", requestWakeLock, { once: true });
     document.addEventListener("touchstart", requestWakeLock, { once: true });
