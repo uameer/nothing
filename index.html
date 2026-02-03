@@ -150,6 +150,10 @@ setInterval(() => {
     // “Room breath” haptic every 6 minutes (soft)
     setInterval(() => vibrateSoft(), 6 * 60 * 1000);
 
+      // VERSION PING (temporary)
+setTimeout(() => showMessage("PING v3 loaded"), 800);
+
+
     // Ask for wake lock after first user interaction (required by browsers)
     document.addEventListener("click", requestWakeLock, { once: true });
     document.addEventListener("touchstart", requestWakeLock, { once: true });
