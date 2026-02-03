@@ -86,7 +86,11 @@
   <script>
     // ---- Messages (LOCKED 1A) ----
     const schedule = [
-       { min: 0, text: "Test: message system works." },
+       { min: 5,  text: "Nothing pulled you." },
+  { min: 10, text: "10 minutes passed. Nothing happened." },
+  { min: 15, text: "The phone didn’t compete." },
+  { min: 30, text: "You were here." },
+  { min: 60, text: "You didn’t miss anything." },
     ];
 
     // ---- Invisible timer starts immediately ----
@@ -127,28 +131,24 @@
 
     // Check every second; only trigger exactly on minute boundaries.
     setInterval(() => {
-      const elapsedMs = Date.now() - start;
-      const elapsedSec = Math.floor(elapsedMs / 1000);
-      const elapsedMin = Math.floor(elapsedSec / 60);
+      function elapsedMinutes() {
+  return Math.floor((Date.now() - start) / 60000);
+}
 
-      // Only check at the exact first second of each minute:
-      if (elapsedSec % 60 !== 0) return;
+// Check 4 times per second so we don’t miss the boundary.
+setInterval(() => {
+  const m = elapsedMinutes();
 
-      for (const item of schedule) {
-        if (elapsedMin === item.min && !shown.has(item.min)) {
-          shown.add(item.min);
-          showMessage(item.text);
-        }
-      }
-    }, 1000);
+  for (const item of schedule) {
+    if (m >= item.min && !shown.has(item.min)) {
+      shown.add(item.min);
+      showMessage(item.text);
+    }
+  }
+}, 250);
 
     // “Room breath” haptic every 6 minutes (soft)
     setInterval(() => vibrateSoft(), 6 * 60 * 1000);
-
-    // --- TEST: show a message after 3 seconds (guaranteed) ---
-setTimeout(() => {
-  showMessage("TEST: if you see this, messages work.");
-}, 3000);
 
     // Ask for wake lock after first user interaction (required by browsers)
     document.addEventListener("click", requestWakeLock, { once: true });
